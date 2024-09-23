@@ -1,4 +1,6 @@
+mod database;
 use console::{Key, Term};
+use database::TodoList;
 use dialoguer::Input;
 use std::io;
 
@@ -32,7 +34,7 @@ fn render_list(items: &Vec<String>, term: &Term) -> io::Result<()> {
     Ok(())
 }
 
-fn handle_delete(item_list: &mut Vec<String>) -> io::Result<()> {
+fn handle_delete(item_list: &mut Vec<String>, db: &TodoList) -> io::Result<()> {
     let index: usize = Input::new()
         .with_prompt("\nEnter item number to delete")
         .validate_with(|input: &usize| -> Result<(), &str> {
@@ -44,15 +46,17 @@ fn handle_delete(item_list: &mut Vec<String>) -> io::Result<()> {
         })
         .interact()
         .unwrap();
+    let _ = db.delete_todo(index.try_into().unwrap());
     item_list.remove(index);
     Ok(())
 }
 
-fn handle_add(item_list: &mut Vec<String>) -> io::Result<()> {
+fn handle_add(item_list: &mut Vec<String>, db: &TodoList) -> io::Result<()> {
     let item: String = Input::new()
         .with_prompt("\nEnter a new item")
         .interact_text()
         .unwrap();
+    let _ = db.add_todo(item_list.len().try_into().unwrap(), &item);
     item_list.push(item);
     Ok(())
 }
@@ -79,7 +83,11 @@ fn gen_opts(empty_list: bool) -> String {
 }
 
 fn run_app() -> io::Result<()> {
+    let todo_list = TodoList::new("todos.db").unwrap();
     let mut item_list: Vec<String> = vec![];
+    for item in todo_list.get_all_todos().unwrap() {
+        item_list.push(item.item);
+    }
     let term = Term::stdout();
     let app_title = bold_str("Rust Todo\n");
     render_and_prompt(
@@ -95,12 +103,12 @@ fn run_app() -> io::Result<()> {
                 break;
             }
             Key::Char('a') => {
-                handle_add(&mut item_list)?;
+                handle_add(&mut item_list, &todo_list)?;
             }
             Key::Char('d') => {
                 // Pass a mutable reference of `item_list` to `handle_delete`
                 if item_list.len() > 0 {
-                    handle_delete(&mut item_list)?;
+                    handle_delete(&mut item_list, &todo_list)?;
                 }
             }
             _ => {}
